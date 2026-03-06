@@ -4,7 +4,7 @@ export interface PixelGrid {
   readonly data: Uint8Array; // RGBA, length = width * height * 4
 }
 
-export type FileType = 'jpeg' | 'png';
+export type FileType = 'jpeg' | 'png' | 'bmp' | 'gif' | 'webp' | 'ico' | 'cur' | 'ani' | 'tiff' | 'pbm' | 'pgm' | 'ppm' | 'qoi' | 'dds' | 'psd' | 'pcx' | 'tga' | 'docx';
 
 export type FitMode = 'cover' | 'contain' | 'fill';
 

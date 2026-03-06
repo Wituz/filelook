@@ -6,10 +6,34 @@ import { encodePng } from './encode-png.ts';
 import { Generator } from './generator.ts';
 import { JpegGenerator } from './generators/jpeg/index.ts';
 import { PngGenerator } from './generators/png/index.ts';
+import { BmpGenerator } from './generators/bmp/index.ts';
+import { GifGenerator } from './generators/gif/index.ts';
+import { WebpGenerator } from './generators/webp/index.ts';
+import { IcoGenerator } from './generators/ico/index.ts';
+import { TiffGenerator } from './generators/tiff/index.ts';
+import { PnmGenerator } from './generators/pnm/index.ts';
+import { QoiGenerator } from './generators/qoi/index.ts';
+import { DdsGenerator } from './generators/dds/index.ts';
+import { PsdGenerator } from './generators/psd/index.ts';
+import { PcxGenerator } from './generators/pcx/index.ts';
+import { TgaGenerator } from './generators/tga/index.ts';
+import { DocxGenerator } from './generators/docx/index.ts';
 
 const generators: readonly Generator[] = [
   new JpegGenerator(),
   new PngGenerator(),
+  new BmpGenerator(),
+  new GifGenerator(),
+  new WebpGenerator(),
+  new IcoGenerator(),
+  new TiffGenerator(),
+  new PnmGenerator(),
+  new QoiGenerator(),
+  new DdsGenerator(),
+  new PsdGenerator(),
+  new DocxGenerator(),
+  new PcxGenerator(),
+  new TgaGenerator(),
 ];
 
 const DEFAULTS: ResolvedOptions = {
@@ -38,7 +62,7 @@ export function generateThumbnail(input: ThumbnailInput, options?: ThumbnailOpti
   const resolved = resolveOptions(options);
   const data = loadInput(input);
 
-  const type = resolved.type ?? detectType(data.subarray(0, 16), generators);
+  const type = resolved.type ?? detectType(data.subarray(0, 64), generators);
   if (!type) throw new Error('Could not detect file type');
 
   const generator = generators.find(g => g.canHandle(type));

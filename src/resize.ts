@@ -47,12 +47,12 @@ function computeScaledRect(
 }
 
 function sampleBilinear(
-  src: Uint8Array, w: number, x: number, y: number,
+  src: Uint8Array, w: number, h: number, x: number, y: number,
 ): [number, number, number, number] {
   const x0 = Math.floor(x);
   const y0 = Math.floor(y);
   const x1 = Math.min(x0 + 1, w - 1);
-  const y1 = y0 + 1; // clamped by caller
+  const y1 = Math.min(y0 + 1, h - 1);
   const fx = x - x0;
   const fy = y - y0;
 
@@ -76,10 +76,10 @@ export function resize(source: PixelGrid, targetWidth: number, targetHeight: num
   const out = new Uint8Array(targetWidth * targetHeight * 4);
 
   for (let dy = 0; dy < rect.dstH; dy++) {
-    const srcY = Math.min(rect.srcY + (dy / rect.dstH) * rect.srcH, source.height - 1);
+    const srcY = Math.max(0, Math.min(rect.srcY + ((dy + 0.5) / rect.dstH) * rect.srcH - 0.5, source.height - 1));
     for (let dx = 0; dx < rect.dstW; dx++) {
-      const srcX = Math.min(rect.srcX + (dx / rect.dstW) * rect.srcW, source.width - 1);
-      const [r, g, b, a] = sampleBilinear(source.data, source.width, srcX, srcY);
+      const srcX = Math.max(0, Math.min(rect.srcX + ((dx + 0.5) / rect.dstW) * rect.srcW - 0.5, source.width - 1));
+      const [r, g, b, a] = sampleBilinear(source.data, source.width, source.height, srcX, srcY);
       const i = ((rect.dstY + dy) * targetWidth + (rect.dstX + dx)) * 4;
       out[i] = r;
       out[i + 1] = g;

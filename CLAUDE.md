@@ -43,6 +43,14 @@ Each file type is fully self-contained in its own `generators/<type>/` folder. S
 
 No changes to existing generators, the resizer, encoder, or public API.
 
+## Testing
+
+Every file type must have at least one test in `test/thumbnail.test.ts` with a fixture in `test/fixtures/`.
+
+## Reference implementations
+
+FFmpeg source code is available at `reference-repos/FFmpeg` for reference when implementing new decoders. Use it to verify algorithm details when in doubt.
+
 ## Code style
 
 - Concise code. Comments explain *why*, never *what*.

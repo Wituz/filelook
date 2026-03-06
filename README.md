@@ -1,20 +1,25 @@
 # filelook
 
-Generate thumbnails for any file type. Zero external dependencies - every format is decoded from scratch.
-
-> **Early development.** The API is unstable and format coverage is limited. Contributions welcome.
+Generate thumbnails for any file type. Zero external dependencies - every format is decoded in pure TypeScript or bundled WASM.
 
 ## Supported formats
 
-| Format | Status |
-|--------|--------|
-| JPEG (baseline + progressive) | Supported |
-| PNG | Supported |
-| PDF | Planned |
-| DOCX / PPTX / XLSX | Planned |
-| BMP / GIF / WebP | Planned |
-
-The goal is to support as many file types as possible, each with a hand-written thumbnail generator and no runtime dependencies.
+| Format | Notes |
+|--------|-------|
+| JPEG | Baseline + progressive |
+| PNG | All bit depths and color types |
+| BMP | 24/32-bit |
+| GIF | First frame, with transparency |
+| WebP | Lossy (VP8), lossless (VP8L), animated (first frame) |
+| TIFF | Uncompressed |
+| ICO / CUR | Includes embedded PNG and BMP |
+| ANI | Animated cursors (first frame) |
+| PSD | Photoshop (composite image) |
+| DDS | DirectDraw Surface |
+| TGA | Targa |
+| PCX | ZSoft Paintbrush |
+| PBM / PGM / PPM | Netpbm formats |
+| QOI | Quite OK Image |
 
 ## Install
 
@@ -28,8 +33,8 @@ npm install filelook
 import { thumbnail, thumbnailAsBase64, thumbnailToFile } from 'filelook';
 
 // File path or Buffer → PNG Buffer
-const buf = thumbnail('./document.pdf');
-const buf = thumbnail(fileBuffer, { width: 128, height: 128 });
+const buf = thumbnail('./photo.webp');
+const buf2 = thumbnail(fileBuffer, { width: 128, height: 128 });
 
 // → base64 string
 const b64 = thumbnailAsBase64('./photo.jpg');
@@ -46,10 +51,6 @@ thumbnailToFile('./photo.jpg', './thumb.png');
 | `height` | `number` | `256` | Thumbnail height in pixels |
 | `type` | `FileType` | auto-detect | Override file type detection |
 | `fit` | `FitMode` | `'cover'` | `'cover'`, `'contain'`, or `'fill'` |
-
-## Adding new formats
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for a guide on implementing a new thumbnail generator.
 
 ## License
 
