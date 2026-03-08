@@ -8,6 +8,7 @@ import { extractFiles } from './zip.ts';
 import { parseDocxModel } from './model.ts';
 import { layoutDocument } from './layout.ts';
 import type {
+  DocxDocument, DocxFloatingImage,
   LayoutLine, LayoutTextItem, LayoutImageItem,
   LayoutFloatingImage, LayoutBackground, LayoutBorderLine,
 } from './types.ts';
@@ -25,6 +26,10 @@ function parseHexColor(hex: string | null): RGBA {
 export function decodeDocx(data: Uint8Array): PixelGrid {
   const files = extractFiles(data);
   const { doc, floats } = parseDocxModel(files);
+  return renderDocumentToPixels(doc, floats);
+}
+
+export function renderDocumentToPixels(doc: DocxDocument, floats: DocxFloatingImage[]): PixelGrid {
   const layout = layoutDocument(doc, floats);
 
   // Compute scale to fit page into MAX_DIM

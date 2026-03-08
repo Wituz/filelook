@@ -17,10 +17,14 @@ import { DdsGenerator } from './generators/dds/index.ts';
 import { PsdGenerator } from './generators/psd/index.ts';
 import { PcxGenerator } from './generators/pcx/index.ts';
 import { TgaGenerator } from './generators/tga/index.ts';
+import { OdtGenerator } from './generators/odt/index.ts';
 import { PptxGenerator } from './generators/pptx/index.ts';
 import { XlsxGenerator } from './generators/xlsx/index.ts';
+import { XlsGenerator } from './generators/xls/index.ts';
+import { DocGenerator } from './generators/doc/index.ts';
 import { DocxGenerator } from './generators/docx/index.ts';
 import { PdfGenerator } from './generators/pdf/index.ts';
+import { SvgGenerator } from './generators/svg/index.ts';
 import { CsvGenerator } from './generators/csv/index.ts';
 
 const generators: readonly Generator[] = [
@@ -35,10 +39,14 @@ const generators: readonly Generator[] = [
   new QoiGenerator(),
   new DdsGenerator(),
   new PsdGenerator(),
+  new OdtGenerator(),
   new PptxGenerator(),
   new XlsxGenerator(),
+  new DocGenerator(),
+  new XlsGenerator(),
   new DocxGenerator(),
   new PdfGenerator(),
+  new SvgGenerator(),
   new CsvGenerator(),
   new PcxGenerator(),
   new TgaGenerator(),
@@ -70,7 +78,7 @@ export function generateThumbnail(input: ThumbnailInput, options?: ThumbnailOpti
   const resolved = resolveOptions(options);
   const data = loadInput(input);
 
-  const type = resolved.type ?? detectType(data.subarray(0, 4096), generators);
+  const type = resolved.type ?? detectType(data, generators);
   if (!type) throw new Error('Could not detect file type');
 
   const generator = generators.find(g => g.canHandle(type));

@@ -164,6 +164,14 @@ describe('thumbnail', () => {
     assert.ok(result.length > 100);
   });
 
+  it('generates a PNG thumbnail from a DOC file path', () => {
+    const result = thumbnail(join(FIXTURES, 'sample.doc'), { width: 64, height: 64 });
+
+    assert.ok(Buffer.isBuffer(result));
+    assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);
+    assert.ok(result.length > 100);
+  });
+
   it('generates a PNG thumbnail from a DOCX file path', () => {
     const result = thumbnail(join(FIXTURES, 'sample.docx'), { width: 64, height: 64 });
 
@@ -172,8 +180,24 @@ describe('thumbnail', () => {
     assert.ok(result.length > 100);
   });
 
+  it('generates a PNG thumbnail from an ODT file path', () => {
+    const result = thumbnail(join(FIXTURES, 'sample.odt'), { width: 64, height: 64 });
+
+    assert.ok(Buffer.isBuffer(result));
+    assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);
+    assert.ok(result.length > 100);
+  });
+
   it('generates a PNG thumbnail from a CSV file path', () => {
     const result = thumbnail(join(FIXTURES, 'sample.csv'), { width: 64, height: 64 });
+
+    assert.ok(Buffer.isBuffer(result));
+    assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);
+    assert.ok(result.length > 100);
+  });
+
+  it('generates a PNG thumbnail from an XLS file path', () => {
+    const result = thumbnail(join(FIXTURES, 'sample.xls'), { width: 64, height: 64 });
 
     assert.ok(Buffer.isBuffer(result));
     assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);
@@ -190,6 +214,14 @@ describe('thumbnail', () => {
 
   it('generates a PNG thumbnail from a PDF file path', () => {
     const result = thumbnail(join(FIXTURES, 'sample.pdf'), { width: 64, height: 64 });
+
+    assert.ok(Buffer.isBuffer(result));
+    assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);
+    assert.ok(result.length > 100);
+  });
+
+  it('generates a PNG thumbnail from an SVG file path', () => {
+    const result = thumbnail(join(FIXTURES, 'sample.svg'), { width: 64, height: 64 });
 
     assert.ok(Buffer.isBuffer(result));
     assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);

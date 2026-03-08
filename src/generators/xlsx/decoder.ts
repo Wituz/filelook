@@ -32,11 +32,18 @@ function parseHexColor(hex: string | null): RGBA {
   return { r: isNaN(r) ? 0 : r, g: isNaN(g) ? 0 : g, b: isNaN(b) ? 0 : b, a: 255 };
 }
 
-export function decodeXlsx(data: Uint8Array): PixelGrid {
-  const files = extractFiles(data);
-  const workbook = parseXlsxModel(files);
+export interface SpreadsheetRenderResult {
+  pixels: PixelGrid;
+  colPositions: number[];
+  rowPositions: number[];
+  scale: number;
+  buffer: Uint8Array;
+  width: number;
+  height: number;
+}
 
-  if (workbook.sheets.length === 0) throw new Error('Invalid XLSX: no sheets');
+export function renderSpreadsheet(workbook: XlsxWorkbook): SpreadsheetRenderResult {
+  if (workbook.sheets.length === 0) throw new Error('Invalid spreadsheet: no sheets');
   const sheet = workbook.sheets[0];
 
   const scaleX = MAX_DIM / PAGE_WIDTH;
@@ -86,24 +93,32 @@ export function decodeXlsx(data: Uint8Array): PixelGrid {
     }
   }
 
-  // 6. Charts
+  return { pixels: { width, height, data: buffer }, colPositions, rowPositions, scale, buffer, width, height };
+}
+
+export function decodeXlsx(data: Uint8Array): PixelGrid {
+  const files = extractFiles(data);
+  const workbook = parseXlsxModel(files);
+
+  const result = renderSpreadsheet(workbook);
+
+  // Charts (XLSX-specific, requires ZIP files)
   for (const chartRef of workbook.charts) {
     try {
       const chart = parseChart(files, chartRef.chartPath, workbook.theme);
       if (!chart) continue;
-      // Position from drawing anchor
-      const pos = drawingPosition(chartRef.drawing, colPositions, rowPositions);
+      const pos = drawingPosition(chartRef.drawing, result.colPositions, result.rowPositions);
       chart.x = pos.x;
       chart.y = pos.y;
       chart.width = pos.width;
       chart.height = pos.height;
-      renderChart(buffer, width, height, chart, scale);
+      renderChart(result.buffer, result.width, result.height, chart, result.scale);
     } catch {
       // Silently skip corrupted charts
     }
   }
 
-  return { width, height, data: buffer };
+  return result.pixels;
 }
 
 // --- Column/Row sizing ---
@@ -404,7 +419,20 @@ function renderCellText(
         cellH = (rowPos[r + 1] ?? rowPos[rowPos.length - 1]) - y0;
       }
 
-      const maxTextWidth = cellW - CELL_PAD * 2;
+      // Extend into adjacent empty cells for text overflow (like Excel)
+      const textWidth = measureText(displayValue, fontSize, bold);
+      let effectiveW = cellW;
+      if (!mc && textWidth > cellW - CELL_PAD * 2) {
+        for (let nc = c + 1; nc < visCols; nc++) {
+          if (mergeMap.has(cellKey(nc, r))) break;
+          const neighbor = cellMap.get(cellKey(nc, r));
+          if (neighbor && resolveDisplayValue(neighbor, workbook)) break;
+          effectiveW = (colPos[nc + 1] ?? colPos[colPos.length - 1]) - x0;
+          if (textWidth <= effectiveW - CELL_PAD * 2) break;
+        }
+      }
+
+      const maxTextWidth = effectiveW - CELL_PAD * 2;
       if (maxTextWidth <= 0) continue;
 
       // Truncate
