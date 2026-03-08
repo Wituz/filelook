@@ -20,6 +20,7 @@ import { TgaGenerator } from './generators/tga/index.ts';
 import { PptxGenerator } from './generators/pptx/index.ts';
 import { DocxGenerator } from './generators/docx/index.ts';
 import { PdfGenerator } from './generators/pdf/index.ts';
+import { CsvGenerator } from './generators/csv/index.ts';
 
 const generators: readonly Generator[] = [
   new JpegGenerator(),
@@ -36,6 +37,7 @@ const generators: readonly Generator[] = [
   new PptxGenerator(),
   new DocxGenerator(),
   new PdfGenerator(),
+  new CsvGenerator(),
   new PcxGenerator(),
   new TgaGenerator(),
 ];
@@ -66,7 +68,7 @@ export function generateThumbnail(input: ThumbnailInput, options?: ThumbnailOpti
   const resolved = resolveOptions(options);
   const data = loadInput(input);
 
-  const type = resolved.type ?? detectType(data.subarray(0, 64), generators);
+  const type = resolved.type ?? detectType(data.subarray(0, 512), generators);
   if (!type) throw new Error('Could not detect file type');
 
   const generator = generators.find(g => g.canHandle(type));

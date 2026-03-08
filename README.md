@@ -23,6 +23,7 @@ Generate thumbnails for any file type. Zero external dependencies - every format
 | DOCX | Word documents (text, images, layout) |
 | PPTX | PowerPoint slides (first slide, text, images) |
 | PDF | Vector graphics, embedded images, text (fallback font) |
+| CSV | Auto-delimiter detection, styled table layout |
 
 ## Install
 
