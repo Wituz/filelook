@@ -1,5 +1,6 @@
 import { Generator, type MagicSignature } from '../../generator.ts';
 import type { PixelGrid, FileType } from '../../types.ts';
+import { decodeDocx } from './decoder.ts';
 
 const CONTENT_TYPES = [0x5B, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x5F, 0x54, 0x79, 0x70, 0x65, 0x73, 0x5D]; // [Content_Types]
 
@@ -18,7 +19,7 @@ export class DocxGenerator extends Generator {
     return 'docx';
   }
 
-  decode(_data: Uint8Array): PixelGrid {
-    throw new Error('DOCX thumbnail generation is not yet implemented');
+  decode(data: Uint8Array): PixelGrid {
+    return decodeDocx(data);
   }
 }

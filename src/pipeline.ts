@@ -17,7 +17,9 @@ import { DdsGenerator } from './generators/dds/index.ts';
 import { PsdGenerator } from './generators/psd/index.ts';
 import { PcxGenerator } from './generators/pcx/index.ts';
 import { TgaGenerator } from './generators/tga/index.ts';
+import { PptxGenerator } from './generators/pptx/index.ts';
 import { DocxGenerator } from './generators/docx/index.ts';
+import { PdfGenerator } from './generators/pdf/index.ts';
 
 const generators: readonly Generator[] = [
   new JpegGenerator(),
@@ -31,7 +33,9 @@ const generators: readonly Generator[] = [
   new QoiGenerator(),
   new DdsGenerator(),
   new PsdGenerator(),
+  new PptxGenerator(),
   new DocxGenerator(),
+  new PdfGenerator(),
   new PcxGenerator(),
   new TgaGenerator(),
 ];
