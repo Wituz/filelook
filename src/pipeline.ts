@@ -18,6 +18,7 @@ import { PsdGenerator } from './generators/psd/index.ts';
 import { PcxGenerator } from './generators/pcx/index.ts';
 import { TgaGenerator } from './generators/tga/index.ts';
 import { PptxGenerator } from './generators/pptx/index.ts';
+import { XlsxGenerator } from './generators/xlsx/index.ts';
 import { DocxGenerator } from './generators/docx/index.ts';
 import { PdfGenerator } from './generators/pdf/index.ts';
 import { CsvGenerator } from './generators/csv/index.ts';
@@ -35,6 +36,7 @@ const generators: readonly Generator[] = [
   new DdsGenerator(),
   new PsdGenerator(),
   new PptxGenerator(),
+  new XlsxGenerator(),
   new DocxGenerator(),
   new PdfGenerator(),
   new CsvGenerator(),
@@ -68,7 +70,7 @@ export function generateThumbnail(input: ThumbnailInput, options?: ThumbnailOpti
   const resolved = resolveOptions(options);
   const data = loadInput(input);
 
-  const type = resolved.type ?? detectType(data.subarray(0, 512), generators);
+  const type = resolved.type ?? detectType(data.subarray(0, 4096), generators);
   if (!type) throw new Error('Could not detect file type');
 
   const generator = generators.find(g => g.canHandle(type));

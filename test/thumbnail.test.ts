@@ -180,6 +180,14 @@ describe('thumbnail', () => {
     assert.ok(result.length > 100);
   });
 
+  it('generates a PNG thumbnail from an XLSX file path', () => {
+    const result = thumbnail(join(FIXTURES, 'sample.xlsx'), { width: 64, height: 64 });
+
+    assert.ok(Buffer.isBuffer(result));
+    assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);
+    assert.ok(result.length > 100);
+  });
+
   it('generates a PNG thumbnail from a PDF file path', () => {
     const result = thumbnail(join(FIXTURES, 'sample.pdf'), { width: 64, height: 64 });
 
