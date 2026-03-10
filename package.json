@@ -13,6 +13,14 @@
   "keywords": [],
   "author": "",
   "license": "Beerware",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wituz/filelook.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Wituz/filelook/issues"
+  },
+  "homepage": "https://github.com/Wituz/filelook#readme",
   "devDependencies": {
     "@types/node": "^25.3.2",
     "typescript": "^5.9.3"
