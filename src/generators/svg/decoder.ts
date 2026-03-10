@@ -8,6 +8,7 @@ import { decodeGif } from '../gif/decoder.ts';
 import { parseXml, attr, type XmlNode } from '../docx/xml.ts';
 import type { SvgStyle, SvgPaint, SvgDefs, SvgGradient, SvgGradientStop } from './types.ts';
 import { DEFAULT_STYLE } from './types.ts';
+import { MAX_RECURSION_DEPTH } from '../../safety.ts';
 
 const MAX_DIM = 1024;
 const KAPPA = 0.5522847498;
@@ -110,9 +111,10 @@ function collectDefs(root: XmlNode): SvgDefs {
   return defs;
 }
 
-function walkTree(node: XmlNode, fn: (n: XmlNode) => void): void {
+function walkTree(node: XmlNode, fn: (n: XmlNode) => void, depth = 0): void {
+  if (depth > MAX_RECURSION_DEPTH) return;
   fn(node);
-  for (const child of node.children) walkTree(child, fn);
+  for (const child of node.children) walkTree(child, fn, depth + 1);
 }
 
 function parseGradientStops(node: XmlNode): SvgGradientStop[] {
@@ -646,7 +648,9 @@ function vecAngle(ux: number, uy: number, vx: number, vy: number): number {
 function renderElement(
   buf: Uint8Array, w: number, h: number,
   node: XmlNode, ctm: Matrix, parentStyle: SvgStyle, defs: SvgDefs,
+  depth = 0,
 ): void {
+  if (depth > MAX_RECURSION_DEPTH) return;
   const tag = node.tag;
   if (tag === 'defs' || tag === 'clipPath' || tag === 'symbol' ||
       tag === 'metadata' || tag === 'title' || tag === 'desc') return;
@@ -659,7 +663,7 @@ function renderElement(
 
   switch (tag) {
     case 'svg': case 'g': case 'a':
-      for (const child of node.children) renderElement(buf, w, h, child, localCtm, style, defs);
+      for (const child of node.children) renderElement(buf, w, h, child, localCtm, style, defs, depth + 1);
       break;
     case 'path': renderPath(buf, w, h, node, localCtm, style, defs); break;
     case 'rect': renderRect(buf, w, h, node, localCtm, style, defs); break;
@@ -671,7 +675,7 @@ function renderElement(
       break;
     case 'text': renderText(buf, w, h, node, localCtm, style, defs); break;
     case 'image': renderImage(buf, w, h, node, localCtm); break;
-    case 'use': renderUse(buf, w, h, node, localCtm, style, defs); break;
+    case 'use': renderUse(buf, w, h, node, localCtm, style, defs, depth); break;
   }
 }
 
@@ -977,6 +981,7 @@ function compositeImageYDown(
 function renderUse(
   buf: Uint8Array, w: number, h: number,
   node: XmlNode, ctm: Matrix, style: SvgStyle, defs: SvgDefs,
+  depth = 0,
 ): void {
   const href = attr(node, 'href') ?? attr(node, 'xlink:href');
   if (!href?.startsWith('#')) return;
@@ -985,5 +990,5 @@ function renderUse(
   const x = parseFloat(attr(node, 'x') ?? '0');
   const y = parseFloat(attr(node, 'y') ?? '0');
   const localCtm = multiplyMatrix(ctm, [1, 0, 0, 1, x, y]);
-  renderElement(buf, w, h, target, localCtm, style, defs);
+  renderElement(buf, w, h, target, localCtm, style, defs, depth + 1);
 }

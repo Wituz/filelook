@@ -1,9 +1,16 @@
 import type { Path, PathSegment, Subpath } from '../generators/pdf/types.ts';
+import { MAX_CMAP_ENTRIES } from '../safety.ts';
 
-// Big-endian binary readers
-function u16(d: Uint8Array, o: number): number { return (d[o] << 8) | d[o + 1]; }
+// Big-endian binary readers — safe: return 0 for out-of-bounds
+function u16(d: Uint8Array, o: number): number {
+  if (o + 1 >= d.length) return 0;
+  return (d[o] << 8) | d[o + 1];
+}
 function i16(d: Uint8Array, o: number): number { const v = u16(d, o); return v >= 0x8000 ? v - 0x10000 : v; }
-function u32(d: Uint8Array, o: number): number { return ((d[o] << 24) | (d[o + 1] << 16) | (d[o + 2] << 8) | d[o + 3]) >>> 0; }
+function u32(d: Uint8Array, o: number): number {
+  if (o + 3 >= d.length) return 0;
+  return ((d[o] << 24) | (d[o + 1] << 16) | (d[o + 2] << 8) | d[o + 3]) >>> 0;
+}
 
 interface Table { offset: number; length: number }
 
@@ -125,6 +132,7 @@ export class TtfFont {
     const deltaOff = startOff + segCount * 2;
     const rangeOff = deltaOff + segCount * 2;
 
+    let total = 0;
     for (let i = 0; i < segCount; i++) {
       const end = u16(d, endOff + i * 2);
       const start = u16(d, startOff + i * 2);
@@ -132,7 +140,7 @@ export class TtfFont {
       const delta = i16(d, deltaOff + i * 2);
       const range = u16(d, rangeOff + i * 2);
 
-      for (let c = start; c <= end; c++) {
+      for (let c = start; c <= end && total < MAX_CMAP_ENTRIES; c++, total++) {
         let gid: number;
         if (range === 0) {
           gid = (c + delta) & 0xFFFF;
@@ -150,12 +158,15 @@ export class TtfFont {
     const d = this.data;
     const map = new Map<number, number>();
     const nGroups = u32(d, off + 12);
+    let total = 0;
     for (let i = 0; i < nGroups; i++) {
       const go = off + 16 + i * 12;
       const startChar = u32(d, go);
       const endChar = u32(d, go + 4);
       const startGid = u32(d, go + 8);
-      for (let c = startChar; c <= endChar; c++) map.set(c, startGid + (c - startChar));
+      for (let c = startChar; c <= endChar && total < MAX_CMAP_ENTRIES; c++, total++) {
+        map.set(c, startGid + (c - startChar));
+      }
     }
     return map;
   }

@@ -1,6 +1,7 @@
 import type { PixelGrid } from '../../types.ts';
 import type { DdsHeader } from './types.ts';
 import { DDPF_FOURCC, DDPF_RGB } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 function readU16LE(d: Uint8Array, o: number): number {
   return d[o] | (d[o + 1] << 8);
@@ -215,6 +216,7 @@ function decodeBlockCompressed(
 export function decodeDds(data: Uint8Array): PixelGrid {
   const h = parseHeader(data);
   const { width, height, pfFlags, fourCC } = h;
+  validateDimensions(width, height);
   let rgba: Uint8Array;
 
   if (pfFlags & DDPF_FOURCC) {

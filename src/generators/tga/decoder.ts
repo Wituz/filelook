@@ -1,5 +1,6 @@
 import type { PixelGrid } from '../../types.ts';
 import type { TgaHeader } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 import {
   IMAGE_TYPE_COLOR_MAPPED, IMAGE_TYPE_RLE_COLOR_MAPPED,
   IMAGE_TYPE_TRUE_COLOR, IMAGE_TYPE_GRAYSCALE,
@@ -85,6 +86,7 @@ function lookupPixel(
 ): void {
   const index = bpp === 2 ? readU16LE(src, offset) : src[offset];
   const ci = index * 4;
+  if (ci + 3 >= colorMap.length) return; // palette bounds check
   rgba[di] = colorMap[ci];
   rgba[di + 1] = colorMap[ci + 1];
   rgba[di + 2] = colorMap[ci + 2];
@@ -155,6 +157,7 @@ function decodeRle(
 export function decodeTga(data: Uint8Array): PixelGrid {
   const h = parseHeader(data);
   const { width, height, pixelDepth, imageType } = h;
+  validateDimensions(width, height);
 
   const isColorMapped = imageType === IMAGE_TYPE_COLOR_MAPPED
     || imageType === IMAGE_TYPE_RLE_COLOR_MAPPED;

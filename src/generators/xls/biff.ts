@@ -1,6 +1,7 @@
 // BIFF8 record reader with CONTINUE handling
 
 import type { BiffRecord } from './types.ts';
+import { MAX_CONTINUE_RECORDS } from '../../safety.ts';
 
 const CONTINUE = 0x003C;
 
@@ -23,8 +24,9 @@ export function readBiffRecords(data: Uint8Array): BiffRecord[] {
 
     const continueBoundaries: number[] = [];
 
-    // Merge CONTINUE records
-    while (pos + 4 <= data.length && readU16(data, pos) === CONTINUE) {
+    // Merge CONTINUE records (bounded to prevent DoS)
+    let contCount = 0;
+    while (pos + 4 <= data.length && readU16(data, pos) === CONTINUE && contCount < MAX_CONTINUE_RECORDS) {
       const contSize = readU16(data, pos + 2);
       pos += 4;
       if (pos + contSize > data.length) break;
@@ -34,6 +36,7 @@ export function readBiffRecords(data: Uint8Array): BiffRecord[] {
       merged.set(data.subarray(pos, pos + contSize), recData.length);
       recData = merged;
       pos += contSize;
+      contCount++;
     }
 
     records.push({ type, data: recData, continueBoundaries });

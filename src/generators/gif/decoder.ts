@@ -1,5 +1,6 @@
 import type { PixelGrid } from '../../types.ts';
 import type { GifHeader, GifFrame } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 function readU16LE(d: Uint8Array, o: number): number {
   return d[o] | (d[o + 1] << 8);
@@ -36,7 +37,7 @@ function lzwDecode(data: Uint8Array, pos: number, minCodeSize: number): { pixels
   while (p < data.length) {
     const blockSize = data[p++];
     if (blockSize === 0) break;
-    for (let i = 0; i < blockSize; i++) blocks.push(data[p++]);
+    for (let i = 0; i < blockSize && p < data.length; i++) blocks.push(data[p++]);
   }
 
   const output: number[] = [];
@@ -211,11 +212,14 @@ export function decodeGif(data: Uint8Array): PixelGrid {
 
       // Map palette indices to RGBA on the full canvas
       const { width: canvasW, height: canvasH } = header;
+      validateDimensions(canvasW, canvasH);
       const rgba = new Uint8Array(canvasW * canvasH * 4);
+      const maxPaletteIdx = Math.floor(colorTable.length / 3) - 1;
 
       for (let y = 0; y < frame.height; y++) {
         for (let x = 0; x < frame.width; x++) {
           const idx = indices[y * frame.width + x];
+          if (idx > maxPaletteIdx) continue; // skip out-of-bounds palette index
           const di = ((frame.top + y) * canvasW + (frame.left + x)) * 4;
           const ci = idx * 3;
           rgba[di] = colorTable[ci];

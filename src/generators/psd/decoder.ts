@@ -1,6 +1,7 @@
 import type { PixelGrid } from '../../types.ts';
 import type { PsdHeader } from './types.ts';
 import { COLOR_MODE_GRAYSCALE, COLOR_MODE_RGB, COLOR_MODE_CMYK } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 function readU16BE(d: Uint8Array, o: number): number {
   return (d[o] << 8) | d[o + 1];
@@ -69,6 +70,7 @@ function unpackBits(data: Uint8Array, offset: number, unpackedSize: number): { d
 export function decodePsd(data: Uint8Array): PixelGrid {
   const h = parseHeader(data);
   const { width, height, channels, depth, colorMode } = h;
+  validateDimensions(width, height);
 
   if (depth !== 8 && depth !== 16) {
     throw new Error(`Unsupported PSD depth: ${depth}`);

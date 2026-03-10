@@ -1,5 +1,6 @@
 import type { PixelGrid } from '../../types.ts';
 import type { PnmHeader } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 // Reads the text-based header, skipping # comments between tokens
 function parseHeader(data: Uint8Array): PnmHeader {
@@ -27,7 +28,7 @@ function parseHeader(data: Uint8Array): PnmHeader {
       if (ch === 0x20 || ch === 0x09 || ch === 0x0A || ch === 0x0D || ch === 0x23) break;
       pos++;
     }
-    return String.fromCharCode(...data.subarray(start, pos));
+    return new TextDecoder().decode(data.subarray(start, pos));
   }
 
   const magicToken = readToken();
@@ -61,7 +62,7 @@ function scale(val: number, maxval: number): number {
 function decodeP1(data: Uint8Array, h: PnmHeader): Uint8Array {
   const { width, height } = h;
   const rgba = new Uint8Array(width * height * 4);
-  const text = String.fromCharCode(...data.subarray(h.dataOffset));
+  const text = new TextDecoder().decode(data.subarray(h.dataOffset));
   const tokens = text.match(/[01]/g)!;
   for (let i = 0; i < width * height; i++) {
     const v = tokens[i] === '1' ? 0 : 255;
@@ -76,7 +77,7 @@ function decodeP1(data: Uint8Array, h: PnmHeader): Uint8Array {
 function decodeP2(data: Uint8Array, h: PnmHeader): Uint8Array {
   const { width, height, maxval } = h;
   const rgba = new Uint8Array(width * height * 4);
-  const text = String.fromCharCode(...data.subarray(h.dataOffset));
+  const text = new TextDecoder().decode(data.subarray(h.dataOffset));
   const tokens = text.match(/\d+/g)!;
   for (let i = 0; i < width * height; i++) {
     const v = scale(parseInt(tokens[i], 10), maxval);
@@ -91,7 +92,7 @@ function decodeP2(data: Uint8Array, h: PnmHeader): Uint8Array {
 function decodeP3(data: Uint8Array, h: PnmHeader): Uint8Array {
   const { width, height, maxval } = h;
   const rgba = new Uint8Array(width * height * 4);
-  const text = String.fromCharCode(...data.subarray(h.dataOffset));
+  const text = new TextDecoder().decode(data.subarray(h.dataOffset));
   const tokens = text.match(/\d+/g)!;
   for (let i = 0; i < width * height; i++) {
     const di = i * 4;
@@ -172,6 +173,7 @@ const decoders = [undefined, decodeP1, decodeP2, decodeP3, decodeP4, decodeP5, d
 
 export function decodePnm(data: Uint8Array): PixelGrid {
   const h = parseHeader(data);
+  validateDimensions(h.width, h.height);
   const decode = decoders[h.magic];
   if (!decode) throw new Error(`Unsupported PNM type: P${h.magic}`);
   const rgba = decode(data, h);

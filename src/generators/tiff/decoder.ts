@@ -4,6 +4,7 @@ import {
   Tag, Compression, Photometric, FieldType, FIELD_TYPE_SIZE,
   type TiffHeader, type IfdEntry, type TiffInfo,
 } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 // Endianness-aware reader — TIFF can be LE or BE
 class TiffReader {
@@ -238,9 +239,11 @@ function readStrips(data: Uint8Array, info: TiffInfo): Uint8Array {
   const chunks: Uint8Array[] = [];
 
   for (let i = 0; i < info.stripOffsets.length; i++) {
+    const stripStart = info.stripOffsets[i];
+    const stripEnd = stripStart + info.stripByteCounts[i];
     const raw = data.subarray(
-      info.stripOffsets[i],
-      info.stripOffsets[i] + info.stripByteCounts[i],
+      Math.min(stripStart, data.length),
+      Math.min(stripEnd, data.length),
     );
 
     switch (info.compression) {
@@ -310,6 +313,7 @@ function toRGBA(pixels: Uint8Array, info: TiffInfo): Uint8Array {
         if (!colorMap) throw new Error('TIFF palette image missing ColorMap');
         const idx = pixels[si];
         const n = colorMap.length / 3;
+        if (idx >= n) { rgba[di + 3] = 255; break; } // palette bounds check
         // TIFF ColorMap: all R values, then all G, then all B (16-bit each)
         rgba[di] = (colorMap[idx] >> 8) & 0xFF;
         rgba[di + 1] = (colorMap[n + idx] >> 8) & 0xFF;
@@ -331,6 +335,7 @@ export function decodeTiff(data: Uint8Array): PixelGrid {
   const r = new TiffReader(data, header.littleEndian);
   const entries = parseIfd(r, header.ifdOffset);
   const info = buildTiffInfo(r, entries);
+  validateDimensions(info.width, info.height);
   const pixels = readStrips(data, info);
   const rgba = toRGBA(pixels, info);
   return { width: info.width, height: info.height, data: rgba };

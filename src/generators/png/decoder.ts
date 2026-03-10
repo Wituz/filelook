@@ -1,6 +1,7 @@
 import { inflateSync } from 'node:zlib';
 import type { PixelGrid } from '../../types.ts';
 import { ColorType, bytesPerPixel, type PngHeader } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
@@ -121,6 +122,7 @@ function toRGBA(pixels: Uint8Array, header: PngHeader, palette?: Uint8Array): Ui
       case ColorType.Indexed: {
         if (!palette) throw new Error('Indexed PNG missing PLTE chunk');
         const idx = pixels[i] * 3;
+        if (idx + 2 >= palette.length) { rgba[oi + 3] = 255; break; }
         rgba[oi] = palette[idx];
         rgba[oi + 1] = palette[idx + 1];
         rgba[oi + 2] = palette[idx + 2];
@@ -135,6 +137,7 @@ function toRGBA(pixels: Uint8Array, header: PngHeader, palette?: Uint8Array): Ui
 
 export function decodePng(data: Uint8Array): PixelGrid {
   const { header, idatChunks, palette } = parseHeader(data);
+  validateDimensions(header.width, header.height);
 
   // Concatenate IDAT chunks and decompress
   const totalLen = idatChunks.reduce((sum, c) => sum + c.length, 0);

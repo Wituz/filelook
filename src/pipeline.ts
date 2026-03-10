@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import type { ThumbnailInput, ThumbnailOptions, ResolvedOptions } from './types.ts';
 import { detectType } from './detect.ts';
 import { resize } from './resize.ts';
 import { encodePng } from './encode-png.ts';
 import { Generator } from './generator.ts';
+import { MAX_INPUT_BYTES, validateDimensions } from './safety.ts';
 import { JpegGenerator } from './generators/jpeg/index.ts';
 import { PngGenerator } from './generators/png/index.ts';
 import { BmpGenerator } from './generators/bmp/index.ts';
@@ -73,8 +74,15 @@ function resolveOptions(options?: ThumbnailOptions): ResolvedOptions {
 }
 
 function loadInput(input: ThumbnailInput): Uint8Array {
-  if (Buffer.isBuffer(input)) return new Uint8Array(input);
-  if (typeof input === 'string') return new Uint8Array(readFileSync(input));
+  if (Buffer.isBuffer(input)) {
+    if (input.length > MAX_INPUT_BYTES) throw new Error('Input too large');
+    return new Uint8Array(input);
+  }
+  if (typeof input === 'string') {
+    const size = statSync(input).size;
+    if (size > MAX_INPUT_BYTES) throw new Error('Input file too large');
+    return new Uint8Array(readFileSync(input));
+  }
   throw new Error('Input must be a file path (string) or Buffer');
 }
 
@@ -89,6 +97,7 @@ export function generateThumbnail(input: ThumbnailInput, options?: ThumbnailOpti
   if (!generator) throw new Error(`No generator for type: ${type}`);
 
   const pixels = generator.decode(data, { targetWidth: resolved.width, targetHeight: resolved.height });
+  validateDimensions(pixels.width, pixels.height);
   const resized = resize(pixels, resolved.width, resolved.height, resolved.fit);
   return Buffer.from(encodePng(resized));
 }

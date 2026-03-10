@@ -1,6 +1,7 @@
 import type { PixelGrid } from '../../types.ts';
 import type { IcoHeader, IcoDirEntry } from './types.ts';
 import { decodePng } from '../png/decoder.ts';
+import { validateDimensions } from '../../safety.ts';
 
 function readU16LE(d: Uint8Array, o: number): number {
   return d[o] | (d[o + 1] << 8);
@@ -67,6 +68,7 @@ function decodeIcoBmpDib(dibData: Uint8Array, entry: IcoDirEntry): PixelGrid {
   }
 
   const { width, height } = entry;
+  validateDimensions(width, height);
   const rgba = new Uint8Array(width * height * 4);
   const rowStride = Math.ceil((width * bitsPerPixel) / 32) * 4;
 
@@ -108,7 +110,9 @@ function decodeIcoBmpDib(dibData: Uint8Array, entry: IcoDirEntry): PixelGrid {
       const srcOff = pixelOffset + srcRow * rowStride;
       for (let x = 0; x < width; x++) {
         const idx = dibData[srcOff + x];
+        if (idx >= colorTableEntries) continue; // palette bounds check
         const ci = colorTableOffset + idx * 4;
+        if (ci + 3 >= dibData.length) continue;
         const di = (y * width + x) * 4;
         rgba[di] = dibData[ci + 2];
         rgba[di + 1] = dibData[ci + 1];
@@ -163,7 +167,11 @@ export function decodeIco(data: Uint8Array): PixelGrid {
   }
 
   const best = pickBestEntry(entries);
-  const entryData = data.subarray(best.dataOffset, best.dataOffset + best.dataSize);
+  const endOffset = best.dataOffset + best.dataSize;
+  if (best.dataOffset > data.length || endOffset > data.length) {
+    throw new Error('ICO entry data exceeds file bounds');
+  }
+  const entryData = data.subarray(best.dataOffset, endOffset);
 
   const isPng = entryData[0] === PNG_MAGIC[0] &&
                 entryData[1] === PNG_MAGIC[1] &&

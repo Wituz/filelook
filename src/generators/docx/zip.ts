@@ -1,4 +1,5 @@
 import { inflateRawSync } from 'node:zlib';
+import { MAX_DECOMPRESSED_BYTES } from '../../safety.ts';
 
 // Reads 2-byte little-endian unsigned int
 function u16(d: Uint8Array, o: number): number {
@@ -38,6 +39,7 @@ export function extractFiles(data: Uint8Array): Map<string, Uint8Array> {
   let pos = cdOffset;
 
   for (let i = 0; i < cdEntries; i++) {
+    if (pos + 46 > data.length) break;
     if (u32(data, pos) !== 0x02014b50) throw new Error('Invalid ZIP: bad central directory entry');
 
     const flags = u16(data, pos + 8);
@@ -49,7 +51,9 @@ export function extractFiles(data: Uint8Array): Map<string, Uint8Array> {
     const commentLen = u16(data, pos + 32);
     const localHeaderOffset = u32(data, pos + 42);
 
-    const name = new TextDecoder().decode(data.subarray(pos + 46, pos + 46 + nameLen));
+    const nameEnd = pos + 46 + nameLen;
+    if (nameEnd > data.length) break;
+    const name = new TextDecoder().decode(data.subarray(pos + 46, nameEnd));
 
     entries.push({ name, method, compressedSize, uncompressedSize, localHeaderOffset, flags });
     pos += 46 + nameLen + extraLen + commentLen;
@@ -79,7 +83,10 @@ export function extractFiles(data: Uint8Array): Map<string, Uint8Array> {
       files.set(entry.name, raw.slice());
     } else if (entry.method === 8) {
       // Deflate — raw deflate, NOT zlib-wrapped
-      files.set(entry.name, new Uint8Array(inflateRawSync(raw)));
+      if (entry.uncompressedSize > MAX_DECOMPRESSED_BYTES) {
+        throw new Error('ZIP entry too large');
+      }
+      files.set(entry.name, new Uint8Array(inflateRawSync(raw, { maxOutputLength: MAX_DECOMPRESSED_BYTES })));
     } else {
       // Unsupported compression method — skip
     }

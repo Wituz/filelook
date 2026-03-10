@@ -1,7 +1,7 @@
 {
   "name": "filelook",
   "version": "1.0.0",
-  "description": "",
+  "description": "A nodejs file thumbnail generator with zero dependencies",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

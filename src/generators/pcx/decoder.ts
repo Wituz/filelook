@@ -1,5 +1,6 @@
 import type { PixelGrid } from '../../types.ts';
 import type { PcxHeader } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 function readU16LE(d: Uint8Array, o: number): number {
   return d[o] | (d[o + 1] << 8);
@@ -36,10 +37,11 @@ function decodeRle(
   let si = offset;
   let di = 0;
 
-  while (di < totalBytes) {
+  while (di < totalBytes && si < data.length) {
     const byte = data[si++];
     if ((byte & 0xC0) === 0xC0) {
       const count = byte & 0x3F;
+      if (si >= data.length) break;
       const val = data[si++];
       for (let i = 0; i < count && di < totalBytes; i++) decoded[di++] = val;
     } else {
@@ -62,6 +64,7 @@ function readVgaPalette(data: Uint8Array): Uint8Array {
 export function decodePcx(data: Uint8Array): PixelGrid {
   const h = parseHeader(data);
   const { width, height, bitsPerPixel, numPlanes, bytesPerLine } = h;
+  validateDimensions(width, height);
   const rgba = new Uint8Array(width * height * 4);
   const scanlineBytes = bytesPerLine * numPlanes;
 

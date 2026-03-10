@@ -1,4 +1,5 @@
 // OLE2/CFB (Compound File Binary) container parser
+import { MAX_STREAM_BYTES } from '../../safety.ts';
 
 const ENDOFCHAIN = -2;
 const FREESECT = -1;
@@ -75,11 +76,14 @@ export function extractOle2Streams(data: Uint8Array): Map<string, Uint8Array> {
     }
   }
 
-  // Follow a FAT chain
+  // Follow a FAT chain with cycle detection
   function followChain(start: number, maxSectors = 100000): number[] {
     const chain: number[] = [];
+    const visited = new Set<number>();
     let s = start;
     while (s >= 0 && s !== ENDOFCHAIN && s !== FREESECT && chain.length < maxSectors) {
+      if (visited.has(s)) break; // cycle detected
+      visited.add(s);
       chain.push(s);
       s = fat[s] ?? ENDOFCHAIN;
     }
@@ -88,14 +92,16 @@ export function extractOle2Streams(data: Uint8Array): Map<string, Uint8Array> {
 
   // Read stream data from FAT chain
   function readStream(start: number, size: number): Uint8Array {
+    if (size > MAX_STREAM_BYTES) throw new Error('OLE2 stream too large');
     const chain = followChain(start);
     const result = new Uint8Array(size);
     let written = 0;
     for (const sec of chain) {
       const off = sectorOffset(sec);
+      if (off + sectorSize > data.length + sectorSize) break; // bounds safety
       const toCopy = Math.min(sectorSize, size - written);
       if (toCopy <= 0) break;
-      result.set(data.subarray(off, off + toCopy), written);
+      result.set(data.subarray(off, Math.min(off + toCopy, data.length)), written);
       written += toCopy;
     }
     return result;
@@ -151,12 +157,16 @@ export function extractOle2Streams(data: Uint8Array): Map<string, Uint8Array> {
   function readMiniStream(start: number, size: number): Uint8Array {
     if (!miniStream) throw new Error('No mini-stream');
     const result = new Uint8Array(size);
+    const visited = new Set<number>();
     let written = 0;
     let s = start;
     while (s >= 0 && s !== ENDOFCHAIN && written < size) {
+      if (visited.has(s)) break; // cycle detected
+      visited.add(s);
       const off = s * MINI_SECTOR_SIZE;
+      if (off >= miniStream.length) break; // bounds check
       const toCopy = Math.min(MINI_SECTOR_SIZE, size - written);
-      result.set(miniStream.subarray(off, off + toCopy), written);
+      result.set(miniStream.subarray(off, Math.min(off + toCopy, miniStream.length)), written);
       written += toCopy;
       s = miniFat[s] ?? ENDOFCHAIN;
     }

@@ -1,5 +1,6 @@
 import type { PixelGrid } from '../../types.ts';
 import { BI_RGB, BI_BITFIELDS, type BmpHeader } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 function readU16LE(d: Uint8Array, o: number): number {
   return d[o] | (d[o + 1] << 8);
@@ -40,6 +41,7 @@ export function decodeBmp(data: Uint8Array): PixelGrid {
   }
 
   const { width, height, bitsPerPixel, dataOffset, topDown } = h;
+  validateDimensions(width, height);
   const bytesPerPixel = bitsPerPixel / 8;
   // BMP rows are padded to 4-byte boundaries
   const rowStride = Math.ceil((width * bytesPerPixel) / 4) * 4;
@@ -52,6 +54,7 @@ export function decodeBmp(data: Uint8Array): PixelGrid {
 
     for (let x = 0; x < width; x++) {
       const si = srcOff + x * bytesPerPixel;
+      if (si + bytesPerPixel > data.length) break;
       const di = (y * width + x) * 4;
       // BMP stores BGR(A)
       rgba[di] = data[si + 2];

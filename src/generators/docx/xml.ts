@@ -1,4 +1,5 @@
 import type { XmlNode } from './types.ts';
+import { MAX_RECURSION_DEPTH } from '../../safety.ts';
 
 const ENTITIES: Record<string, string> = {
   'amp': '&', 'lt': '<', 'gt': '>', 'quot': '"', 'apos': "'",
@@ -93,7 +94,8 @@ export function parseXml(text: string): XmlNode {
     return attrs;
   }
 
-  function parseElement(): XmlNode {
+  function parseElement(depth = 0): XmlNode {
+    if (depth > MAX_RECURSION_DEPTH) throw new Error('XML nesting too deep');
     pos++; // skip <
     const { prefix, tag, fullName } = parseTagName();
     const attrs = parseAttributes();
@@ -129,7 +131,7 @@ export function parseXml(text: string): XmlNode {
       }
 
       if (text[pos] === '<') {
-        children.push(parseElement());
+        children.push(parseElement(depth + 1));
       } else {
         const start = pos;
         while (pos < text.length && text[pos] !== '<') pos++;

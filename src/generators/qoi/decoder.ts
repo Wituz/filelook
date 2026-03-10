@@ -1,5 +1,6 @@
 import type { PixelGrid } from '../../types.ts';
 import type { QoiHeader } from './types.ts';
+import { validateDimensions } from '../../safety.ts';
 
 function readU32BE(d: Uint8Array, o: number): number {
   return ((d[o] << 24) | (d[o + 1] << 16) | (d[o + 2] << 8) | d[o + 3]) >>> 0;
@@ -26,6 +27,7 @@ function hash(r: number, g: number, b: number, a: number): number {
 export function decodeQoi(data: Uint8Array): PixelGrid {
   const h = parseHeader(data);
   const { width, height } = h;
+  validateDimensions(width, height);
   const pixelCount = width * height;
   const rgba = new Uint8Array(pixelCount * 4);
 

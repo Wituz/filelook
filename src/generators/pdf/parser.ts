@@ -3,6 +3,7 @@ import type {
   PdfObject, PdfDict, PdfStream, PdfRef, PdfName, PdfPage, XrefEntry,
 } from './types.ts';
 import { pdfName, pdfRef, pdfStream, isPdfRef, isPdfName, isPdfStream, isPdfDict } from './types.ts';
+import { MAX_RECURSION_DEPTH } from '../../safety.ts';
 
 // --- Tokenizer ---
 
@@ -56,7 +57,8 @@ class Tokenizer {
     return this.eof() ? -1 : this.byte();
   }
 
-  readObject(): PdfObject {
+  readObject(depth = 0): PdfObject {
+    if (depth > MAX_RECURSION_DEPTH) throw new Error('PDF object nesting too deep');
     this.skipWhitespaceAndComments();
     if (this.eof()) throw new Error('Unexpected EOF reading PDF object');
 
@@ -67,12 +69,12 @@ class Tokenizer {
     // Hex string or dict
     if (b === 0x3C) {
       if (this.pos + 1 < this.data.length && this.data[this.pos + 1] === 0x3C) {
-        return this.readDict();
+        return this.readDict(depth + 1);
       }
       return this.readHexString();
     }
     // Array
-    if (b === 0x5B) return this.readArray();
+    if (b === 0x5B) return this.readArray(depth + 1);
     // Name
     if (b === 0x2F) return this.readName();
     // Number or indirect ref
@@ -177,7 +179,7 @@ class Tokenizer {
     return pdfName(name);
   }
 
-  readArray(): PdfObject[] {
+  readArray(depth = 0): PdfObject[] {
     this.pos++; // skip [
     const arr: PdfObject[] = [];
     while (true) {
@@ -187,11 +189,11 @@ class Tokenizer {
         this.pos++;
         return arr;
       }
-      arr.push(this.readObject());
+      arr.push(this.readObject(depth));
     }
   }
 
-  readDict(): PdfDict {
+  readDict(depth = 0): PdfDict {
     this.pos += 2; // skip <<
     const dict: PdfDict = new Map();
     while (true) {
@@ -202,7 +204,7 @@ class Tokenizer {
         return dict;
       }
       const key = this.readName();
-      const value = this.readObject();
+      const value = this.readObject(depth);
       dict.set(key.name, value);
     }
   }

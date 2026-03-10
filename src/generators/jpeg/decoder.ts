@@ -35,8 +35,10 @@ class BitReader {
 
   readBit(): number {
     if (this.bitCount === 0) {
+      if (this.pos >= this.data.length) return 0;
       let byte = this.data[this.pos++];
       if (byte === 0xFF) {
+        if (this.pos >= this.data.length) return 0;
         const next = this.data[this.pos++];
         if (next !== 0) throw new Error(`Unexpected marker 0xFF${next.toString(16)} in scan data`);
       }
@@ -66,7 +68,9 @@ class BitReader {
     for (let len = 1; len <= 16; len++) {
       code = (code << 1) | this.readBit();
       if (code <= table.maxCode[len]) {
-        return table.values[table.valPtr[len] + code - table.minCode[len]];
+        const idx = table.valPtr[len] + code - table.minCode[len];
+        if (idx >= 0 && idx < table.values.length) return table.values[idx];
+        return 0;
       }
     }
     throw new Error('Invalid Huffman code');
