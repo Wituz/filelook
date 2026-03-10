@@ -29,7 +29,6 @@ Generate thumbnails for any file type. Zero external dependencies - every format
 ## Install
 
 ```bash
-# This is not yet published, but will eventually be available at
 npm install filelook
 ```
 
