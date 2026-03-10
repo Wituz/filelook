@@ -20,9 +20,15 @@ Generate thumbnails for any file type. Zero external dependencies - every format
 | PCX | ZSoft Paintbrush |
 | PBM / PGM / PPM | Netpbm formats |
 | QOI | Quite OK Image |
-| DOCX | Word documents (text, images, layout) |
-| PPTX | PowerPoint slides (first slide, text, images) |
 | PDF | Vector graphics, embedded images, text (fallback font) |
+| DOCX | Word documents (text, images, layout) |
+| DOC | Word 97-2003 (text, images, layout) |
+| ODT | OpenDocument Text |
+| PPTX | PowerPoint slides (first slide, text, images) |
+| PPT | PowerPoint 97-2003 (first slide, text, images) |
+| XLSX | Excel spreadsheets (grid, charts, images) |
+| XLS | Excel 97-2003 (grid layout) |
+| SVG | Scalable Vector Graphics (shapes, paths, text, images) |
 | CSV | Auto-delimiter detection, styled table layout |
 | MP4 | H.264 video (first frame) — **work in progress** |
 
