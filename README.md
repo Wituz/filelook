@@ -24,6 +24,7 @@ Generate thumbnails for any file type. Zero external dependencies - every format
 | PPTX | PowerPoint slides (first slide, text, images) |
 | PDF | Vector graphics, embedded images, text (fallback font) |
 | CSV | Auto-delimiter detection, styled table layout |
+| MP4 | H.264 video (first frame) — **work in progress** |
 
 ## Install
 
