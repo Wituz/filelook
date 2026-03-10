@@ -1,5 +1,5 @@
 import { Generator, type MagicSignature } from '../../generator.ts';
-import type { PixelGrid, FileType } from '../../types.ts';
+import type { PixelGrid, FileType, DecodeHints } from '../../types.ts';
 import { decodeJpeg } from './decoder.ts';
 
 export class JpegGenerator extends Generator {
@@ -9,7 +9,7 @@ export class JpegGenerator extends Generator {
     { type: 'jpeg', bytes: [0xFF, 0xD8, 0xFF], offset: 0 },
   ];
 
-  decode(data: Uint8Array): PixelGrid {
-    return decodeJpeg(data);
+  decode(data: Uint8Array, hints?: DecodeHints): PixelGrid {
+    return decodeJpeg(data, hints);
   }
 }

@@ -21,11 +21,13 @@ import { OdtGenerator } from './generators/odt/index.ts';
 import { PptxGenerator } from './generators/pptx/index.ts';
 import { XlsxGenerator } from './generators/xlsx/index.ts';
 import { XlsGenerator } from './generators/xls/index.ts';
+import { PptGenerator } from './generators/ppt/index.ts';
 import { DocGenerator } from './generators/doc/index.ts';
 import { DocxGenerator } from './generators/docx/index.ts';
 import { PdfGenerator } from './generators/pdf/index.ts';
 import { SvgGenerator } from './generators/svg/index.ts';
 import { CsvGenerator } from './generators/csv/index.ts';
+import { Mp4Generator } from './generators/mp4/index.ts';
 
 const generators: readonly Generator[] = [
   new JpegGenerator(),
@@ -42,12 +44,14 @@ const generators: readonly Generator[] = [
   new OdtGenerator(),
   new PptxGenerator(),
   new XlsxGenerator(),
+  new PptGenerator(),
   new DocGenerator(),
   new XlsGenerator(),
   new DocxGenerator(),
   new PdfGenerator(),
   new SvgGenerator(),
   new CsvGenerator(),
+  new Mp4Generator(),
   new PcxGenerator(),
   new TgaGenerator(),
 ];
@@ -84,7 +88,7 @@ export function generateThumbnail(input: ThumbnailInput, options?: ThumbnailOpti
   const generator = generators.find(g => g.canHandle(type));
   if (!generator) throw new Error(`No generator for type: ${type}`);
 
-  const pixels = generator.decode(data);
+  const pixels = generator.decode(data, { targetWidth: resolved.width, targetHeight: resolved.height });
   const resized = resize(pixels, resolved.width, resolved.height, resolved.fit);
   return Buffer.from(encodePng(resized));
 }

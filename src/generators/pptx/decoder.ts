@@ -22,7 +22,10 @@ function parseHexColor(hex: string | null): RGBA {
 export function decodePptx(data: Uint8Array): PixelGrid {
   const files = extractFiles(data);
   const { slide, images } = parsePptxSlide(files);
+  return renderSlideToPixels(slide, images);
+}
 
+export function renderSlideToPixels(slide: PptxSlide, images: Map<string, Uint8Array>): PixelGrid {
   const scaleX = MAX_DIM / slide.width;
   const scaleY = MAX_DIM / slide.height;
   const scale = Math.min(scaleX, scaleY);

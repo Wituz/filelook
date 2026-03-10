@@ -156,6 +156,14 @@ describe('thumbnail', () => {
     assert.ok(result.length > 100);
   });
 
+  it('generates a PNG thumbnail from a PPT file path', () => {
+    const result = thumbnail(join(FIXTURES, 'sample.ppt'), { width: 64, height: 64 });
+
+    assert.ok(Buffer.isBuffer(result));
+    assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);
+    assert.ok(result.length > 100);
+  });
+
   it('generates a PNG thumbnail from a PPTX file path', () => {
     const result = thumbnail(join(FIXTURES, 'sample.pptx'), { width: 64, height: 64 });
 
@@ -222,6 +230,14 @@ describe('thumbnail', () => {
 
   it('generates a PNG thumbnail from an SVG file path', () => {
     const result = thumbnail(join(FIXTURES, 'sample.svg'), { width: 64, height: 64 });
+
+    assert.ok(Buffer.isBuffer(result));
+    assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);
+    assert.ok(result.length > 100);
+  });
+
+  it('generates a PNG thumbnail from an MP4 file path', () => {
+    const result = thumbnail(join(FIXTURES, 'sample.mp4'), { width: 64, height: 64 });
 
     assert.ok(Buffer.isBuffer(result));
     assert.deepStrictEqual([...result.subarray(0, 8)], PNG_MAGIC);

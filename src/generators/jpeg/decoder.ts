@@ -1,4 +1,4 @@
-import type { PixelGrid } from '../../types.ts';
+import type { PixelGrid, DecodeHints } from '../../types.ts';
 import {
   ZIGZAG,
   type HuffmanTable,
@@ -122,8 +122,11 @@ const C5 = 0.5555702330;
 const C6 = 0.3826834324;
 const C7 = 0.1950903220;
 
+const _colScratch = new Float64Array(8);
+
 function idctPass(s0: number, s1: number, s2: number, s3: number,
-  s4: number, s5: number, s6: number, s7: number): Float64Array {
+  s4: number, s5: number, s6: number, s7: number,
+  out: Float64Array, o: number): void {
   const p0 = (s0 + s4) * 0.5;
   const p1 = (s0 - s4) * 0.5;
   const p2 = s2 * C6 - s6 * C2;
@@ -133,7 +136,8 @@ function idctPass(s0: number, s1: number, s2: number, s3: number,
   const q1 = s1 * C3 - s3 * C7 - s5 * C1 - s7 * C5;
   const q2 = s1 * C5 - s3 * C1 + s5 * C7 + s7 * C3;
   const q3 = s1 * C7 - s3 * C5 + s5 * C3 - s7 * C1;
-  return new Float64Array([t0+q0, t1+q1, t2+q2, t3+q3, t3-q3, t2-q2, t1-q1, t0-q0]);
+  out[o] = t0+q0; out[o+1] = t1+q1; out[o+2] = t2+q2; out[o+3] = t3+q3;
+  out[o+4] = t3-q3; out[o+5] = t2-q2; out[o+6] = t1-q1; out[o+7] = t0-q0;
 }
 
 function inverseDCT(coefficients: Int32Array, qt: Int32Array): Float64Array {
@@ -143,19 +147,18 @@ function inverseDCT(coefficients: Int32Array, qt: Int32Array): Float64Array {
     block[ZIGZAG[i]] = coefficients[i] * qt[i];
   }
 
-  // Row pass
+  // Row pass — write directly into block (contiguous rows)
   for (let r = 0; r < 8; r++) {
     const o = r * 8;
-    const row = idctPass(block[o], block[o+1], block[o+2], block[o+3],
-      block[o+4], block[o+5], block[o+6], block[o+7]);
-    block.set(row, o);
+    idctPass(block[o], block[o+1], block[o+2], block[o+3],
+      block[o+4], block[o+5], block[o+6], block[o+7], block, o);
   }
 
-  // Column pass
+  // Column pass — use scratch buffer, scatter back
   for (let c = 0; c < 8; c++) {
-    const col = idctPass(block[c], block[8+c], block[16+c], block[24+c],
-      block[32+c], block[40+c], block[48+c], block[56+c]);
-    for (let r = 0; r < 8; r++) block[r * 8 + c] = col[r];
+    idctPass(block[c], block[8+c], block[16+c], block[24+c],
+      block[32+c], block[40+c], block[48+c], block[56+c], _colScratch, 0);
+    for (let r = 0; r < 8; r++) block[r * 8 + c] = _colScratch[r];
   }
 
   return block;
@@ -173,7 +176,7 @@ interface ScanParams {
 
 // --- Main decoder ---
 
-export function decodeJpeg(data: Uint8Array): PixelGrid {
+export function decodeJpeg(data: Uint8Array, hints?: DecodeHints): PixelGrid {
   if (data[0] !== 0xFF || data[1] !== M_SOI) throw new Error('Invalid JPEG: missing SOI');
 
   const dcTables: HuffmanTable[] = [];
@@ -187,6 +190,7 @@ export function decodeJpeg(data: Uint8Array): PixelGrid {
   let coeffBlocks: Int32Array[][][] | null = null;
   let mcuCols = 0;
   let mcuRows = 0;
+  let useDCOnly = false;
 
   let pos = 2;
 
@@ -239,12 +243,19 @@ export function decodeJpeg(data: Uint8Array): PixelGrid {
       mcuCols = Math.ceil(width / (maxH * 8));
       mcuRows = Math.ceil(height / (maxV * 8));
 
+      // DC-only mode: 1 pixel per 8x8 block is enough when that's still >= target
+      const dcWidth = mcuCols * maxH;
+      const dcHeight = mcuRows * maxV;
+      useDCOnly = hints != null
+        && dcWidth >= hints.targetWidth
+        && dcHeight >= hints.targetHeight;
+
       // Pre-allocate coefficient blocks for all components
       coeffBlocks = components.map(comp => {
         const bH = mcuCols * comp.hSample;
         const bV = mcuRows * comp.vSample;
         return Array.from({ length: bV }, () =>
-          Array.from({ length: bH }, () => new Int32Array(64)),
+          Array.from({ length: bH }, () => new Int32Array(useDCOnly ? 1 : 64)),
         );
       });
     } else if (marker === M_DHT) {
@@ -287,10 +298,13 @@ export function decodeJpeg(data: Uint8Array): PixelGrid {
       const scanStart = pos + segLen;
       const reader = new BitReader(data, scanStart);
 
-      if (progressive) {
+      // In DC-only mode, skip AC scans entirely for progressive JPEGs
+      if (useDCOnly && progressive && ss > 0) {
+        // Skip past scan data without decoding
+      } else if (progressive) {
         decodeProgressiveScan(reader, frame, coeffBlocks, scanParams, dcTables, acTables, restartInterval, mcuCols, mcuRows);
       } else {
-        decodeBaselineScan(reader, frame, coeffBlocks, scanParams, dcTables, acTables, restartInterval, mcuCols, mcuRows);
+        decodeBaselineScan(reader, frame, coeffBlocks, scanParams, dcTables, acTables, restartInterval, mcuCols, mcuRows, useDCOnly);
       }
 
       // Advance pos past the scan data to the next marker
@@ -305,6 +319,10 @@ export function decodeJpeg(data: Uint8Array): PixelGrid {
   }
 
   if (!frame || !coeffBlocks) throw new Error('Invalid JPEG: no image data found');
+
+  if (useDCOnly) {
+    return assembleDCPixels(coeffBlocks, frame, qtTables, mcuCols, mcuRows);
+  }
   return assemblePixels(coeffBlocks, frame, qtTables, mcuCols, mcuRows);
 }
 
@@ -314,6 +332,7 @@ function decodeBaselineScan(
   reader: BitReader, frame: FrameInfo, coeffBlocks: Int32Array[][][],
   params: ScanParams, dcTables: HuffmanTable[], acTables: HuffmanTable[],
   restartInterval: number, mcuCols: number, mcuRows: number,
+  dcOnly = false,
 ): void {
   const { components } = frame;
   const prevDC = new Int32Array(components.length);
@@ -344,7 +363,7 @@ function decodeBaselineScan(
             }
             coeffs[0] = prevDC[sc.compIdx];
 
-            // AC
+            // AC — must still read from bitstream to maintain alignment
             let k = 1;
             while (k < 64) {
               const rs = reader.decodeHuffman(acTable);
@@ -356,7 +375,8 @@ function decodeBaselineScan(
               }
               k += run;
               if (k >= 64) break;
-              coeffs[k] = reader.extend(reader.readBits(size), size);
+              const val = reader.extend(reader.readBits(size), size);
+              if (!dcOnly) coeffs[k] = val;
               k++;
             }
           }
@@ -542,6 +562,72 @@ function handleRestart(reader: BitReader): void {
   }
 }
 
+// --- DC-only assembly: 1 pixel per 8x8 block, no IDCT ---
+
+function assembleDCPixels(
+  coeffBlocks: Int32Array[][][],
+  frame: FrameInfo,
+  qtTables: QuantizationTable[],
+  mcuCols: number,
+  mcuRows: number,
+): PixelGrid {
+  const { components, maxH, maxV } = frame;
+  const outW = mcuCols * maxH;
+  const outH = mcuRows * maxV;
+  const rgba = new Uint8Array(outW * outH * 4);
+
+  // DC normalization: two idctPass stages each multiply DC by 0.5 → 0.25 total
+  const dcScales = components.map(comp => qtTables[comp.qtId].data[0] * 0.25);
+
+  if (components.length === 1) {
+    const scale = dcScales[0];
+    const blocks = coeffBlocks[0];
+    for (let by = 0; by < blocks.length; by++) {
+      const row = blocks[by];
+      for (let bx = 0; bx < row.length; bx++) {
+        const v = clamp(row[bx][0] * scale + 128);
+        const i = (by * outW + bx) * 4;
+        rgba[i] = v; rgba[i + 1] = v; rgba[i + 2] = v; rgba[i + 3] = 255;
+      }
+    }
+  } else {
+    // Build per-component DC value arrays at native block resolution
+    const dcImages = components.map((comp, ci) => {
+      const scale = dcScales[ci];
+      const bH = mcuCols * comp.hSample;
+      const bV = mcuRows * comp.vSample;
+      const img = new Float64Array(bV * bH);
+      for (let by = 0; by < bV; by++) {
+        for (let bx = 0; bx < bH; bx++) {
+          img[by * bH + bx] = coeffBlocks[ci][by][bx][0] * scale + 128;
+        }
+      }
+      return img;
+    });
+
+    const h0 = components[0].hSample, v0 = components[0].vSample;
+    const h1 = components[1].hSample, v1 = components[1].vSample;
+    const h2 = components[2].hSample, v2 = components[2].vSample;
+    const w0 = mcuCols * h0, w1 = mcuCols * h1, w2 = mcuCols * h2;
+
+    for (let y = 0; y < outH; y++) {
+      for (let x = 0; x < outW; x++) {
+        const yy = dcImages[0][(y * v0 / maxV | 0) * w0 + (x * h0 / maxH | 0)];
+        const cb = dcImages[1][(y * v1 / maxV | 0) * w1 + (x * h1 / maxH | 0)];
+        const cr = dcImages[2][(y * v2 / maxV | 0) * w2 + (x * h2 / maxH | 0)];
+
+        const i = (y * outW + x) * 4;
+        rgba[i]     = clamp(yy + 1.402 * (cr - 128));
+        rgba[i + 1] = clamp(yy - 0.344136 * (cb - 128) - 0.714136 * (cr - 128));
+        rgba[i + 2] = clamp(yy + 1.772 * (cb - 128));
+        rgba[i + 3] = 255;
+      }
+    }
+  }
+
+  return { width: outW, height: outH, data: rgba };
+}
+
 // --- Assemble decoded blocks into RGBA pixels ---
 
 function assemblePixels(
@@ -566,40 +652,39 @@ function assemblePixels(
   const rgba = new Uint8Array(width * height * 4);
   const isGrayscale = components.length === 1;
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let r: number, g: number, b: number;
-
-      if (isGrayscale) {
-        const comp = components[0];
-        const sx = (x * comp.hSample) / maxH;
-        const sy = (y * comp.vSample) / maxV;
+  if (isGrayscale) {
+    const h0 = components[0].hSample, v0 = components[0].vSample;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const sx = (x * h0) / maxH;
+        const sy = (y * v0) / maxV;
         const val = pixelBlocks[0][Math.floor(sy / 8)]?.[Math.floor(sx / 8)]?.[Math.floor(sy) % 8 * 8 + Math.floor(sx) % 8] ?? 0;
-        r = g = b = clamp(val + 128);
-      } else {
-        const vals: number[] = [];
-        for (let ci = 0; ci < 3; ci++) {
-          const comp = components[ci];
-          const sx = (x * comp.hSample) / maxH;
-          const sy = (y * comp.vSample) / maxV;
-          const bx = Math.floor(sx / 8);
-          const by = Math.floor(sy / 8);
-          const px = Math.floor(sx) % 8;
-          const py = Math.floor(sy) % 8;
-          vals.push((pixelBlocks[ci][by]?.[bx]?.[py * 8 + px] ?? 0) + 128);
-        }
-
-        const [yy, cb, cr] = vals;
-        r = clamp(yy + 1.402 * (cr - 128));
-        g = clamp(yy - 0.344136 * (cb - 128) - 0.714136 * (cr - 128));
-        b = clamp(yy + 1.772 * (cb - 128));
+        const v = clamp(val + 128);
+        const i = (y * width + x) * 4;
+        rgba[i] = v; rgba[i + 1] = v; rgba[i + 2] = v; rgba[i + 3] = 255;
       }
+    }
+  } else {
+    const h0 = components[0].hSample, v0 = components[0].vSample;
+    const h1 = components[1].hSample, v1 = components[1].vSample;
+    const h2 = components[2].hSample, v2 = components[2].vSample;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const sx0 = (x * h0) / maxH, sy0 = (y * v0) / maxV;
+        const yy = (pixelBlocks[0][Math.floor(sy0 / 8)]?.[Math.floor(sx0 / 8)]?.[Math.floor(sy0) % 8 * 8 + Math.floor(sx0) % 8] ?? 0) + 128;
 
-      const i = (y * width + x) * 4;
-      rgba[i] = r;
-      rgba[i + 1] = g;
-      rgba[i + 2] = b;
-      rgba[i + 3] = 255;
+        const sx1 = (x * h1) / maxH, sy1 = (y * v1) / maxV;
+        const cb = (pixelBlocks[1][Math.floor(sy1 / 8)]?.[Math.floor(sx1 / 8)]?.[Math.floor(sy1) % 8 * 8 + Math.floor(sx1) % 8] ?? 0) + 128;
+
+        const sx2 = (x * h2) / maxH, sy2 = (y * v2) / maxV;
+        const cr = (pixelBlocks[2][Math.floor(sy2 / 8)]?.[Math.floor(sx2 / 8)]?.[Math.floor(sy2) % 8 * 8 + Math.floor(sx2) % 8] ?? 0) + 128;
+
+        const i = (y * width + x) * 4;
+        rgba[i] = clamp(yy + 1.402 * (cr - 128));
+        rgba[i + 1] = clamp(yy - 0.344136 * (cb - 128) - 0.714136 * (cr - 128));
+        rgba[i + 2] = clamp(yy + 1.772 * (cb - 128));
+        rgba[i + 3] = 255;
+      }
     }
   }
 

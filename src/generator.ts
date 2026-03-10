@@ -1,4 +1,4 @@
-import type { PixelGrid, FileType } from './types.ts';
+import type { PixelGrid, FileType, DecodeHints } from './types.ts';
 
 export interface MagicSignature {
   readonly type: FileType;
@@ -10,7 +10,7 @@ export abstract class Generator {
   abstract readonly supportedTypes: readonly FileType[];
   abstract readonly signatures: readonly MagicSignature[];
 
-  abstract decode(data: Uint8Array): PixelGrid;
+  abstract decode(data: Uint8Array, hints?: DecodeHints): PixelGrid;
 
   canHandle(type: FileType): boolean {
     return this.supportedTypes.includes(type);
