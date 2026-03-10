@@ -1,0 +1,8 @@
+src/
+test/
+reference-repos/
+*.tsbuildinfo
+tsconfig.json
+.nvmrc
+.gitignore
+CLAUDE.md

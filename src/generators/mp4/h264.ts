@@ -352,7 +352,7 @@ function inverseHadamard4x4(dc: Int32Array): Int32Array {
 
 // --- Inverse 2x2 Hadamard (chroma DC, 4:2:0) ---
 
-function inverseHadamard2x2(dc: Int32Array): Int32Array {
+function inverseHadamard2x2(dc: Int32Array<ArrayBuffer>): Int32Array<ArrayBuffer> {
   const out = new Int32Array(4);
   out[0] = dc[0] + dc[1] + dc[2] + dc[3];
   out[1] = dc[0] - dc[1] + dc[2] - dc[3];

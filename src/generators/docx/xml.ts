@@ -1,4 +1,5 @@
 import type { XmlNode } from './types.ts';
+export type { XmlNode } from './types.ts';
 import { MAX_RECURSION_DEPTH } from '../../safety.ts';
 
 const ENTITIES: Record<string, string> = {

@@ -671,7 +671,7 @@ function buildTextShape(shape: PptShapeInfo, textBlocks: TextBlock[]): PptxTextS
       }
 
       // Find paragraph alignment
-      let alignment = defaultAlign;
+      let alignment: 'left' | 'center' | 'right' = defaultAlign;
       if (block.paraRuns.length > 0) {
         const paraRun = findParaRunAtOffset(charOffset, block.paraRuns);
         if (paraRun) {
