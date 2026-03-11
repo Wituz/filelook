@@ -63,6 +63,10 @@ thumbnailToFile('./photo.jpg', './thumb.png');
 | `type` | `FileType` | auto-detect | Override file type detection |
 | `fit` | `FitMode` | `'cover'` | `'cover'`, `'contain'`, or `'fill'` |
 
+## Contributing
+
+File type contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for a step-by-step guide on adding a new thumbnail generator.
+
 ## License
 
 ISC

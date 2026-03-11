@@ -384,7 +384,7 @@ export class PdfParser {
     tok.readNumber(); // genNum
     tok.readToken(); // 'obj'
 
-    const dict = tok.readDict() as PdfDict;
+    const dict = tok.readObject() as PdfDict;
 
     // Read stream data
     tok.skipWhitespaceAndComments();
