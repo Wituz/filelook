@@ -103,6 +103,12 @@ class ContentStreamTokenizer {
       return { type: 'number', value: this.readNumber() };
     }
 
+    // Skip stray closing delimiters (can appear when content is split across streams)
+    if (b === 0x3E || b === 0x29 || b === 0x5D) { // > ) ]
+      this.pos++;
+      return this.nextToken();
+    }
+
     // Keyword / operator
     const kw = this.readKeyword();
     if (kw === 'true') return { type: 'bool', value: true };
