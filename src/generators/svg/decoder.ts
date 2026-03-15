@@ -28,7 +28,6 @@ export function decodeSvg(data: Uint8Array): PixelGrid {
   const width = Math.max(1, Math.round(vw * scale));
   const height = Math.max(1, Math.round(vh * scale));
   const buffer = new Uint8Array(width * height * 4);
-  buffer.fill(255);
 
   let ctm: Matrix;
   if (viewBox) {
@@ -659,7 +658,7 @@ function renderElement(
   if (!style.display) return;
 
   const transform = parseTransform(attr(node, 'transform'));
-  const localCtm = multiplyMatrix(ctm, transform);
+  const localCtm = multiplyMatrix(transform, ctm);
 
   switch (tag) {
     case 'svg': case 'g': case 'a':
@@ -989,6 +988,6 @@ function renderUse(
   if (!target) return;
   const x = parseFloat(attr(node, 'x') ?? '0');
   const y = parseFloat(attr(node, 'y') ?? '0');
-  const localCtm = multiplyMatrix(ctm, [1, 0, 0, 1, x, y]);
+  const localCtm = multiplyMatrix([1, 0, 0, 1, x, y], ctm);
   renderElement(buf, w, h, target, localCtm, style, defs, depth + 1);
 }
