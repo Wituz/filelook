@@ -69,4 +69,4 @@ File type contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for 
 
 ## License
 
-ISC
+Beerware
