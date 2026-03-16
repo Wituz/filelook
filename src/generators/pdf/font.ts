@@ -161,6 +161,7 @@ export function parseFont(
     encoding,
     baseFont: baseFontName,
     defaultWidth,
+    isComposite: subtypeName === 'Type0',
   };
 }
 

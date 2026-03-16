@@ -519,32 +519,36 @@ class PageRenderer {
       case 'W': break; // clipping - skip for now
       case 'W*': break;
 
-      // --- Color ---
-      case 'g': this.state.fillColor = this.grayToRGBA(this.num(operands, 0)); break;
-      case 'G': this.state.strokeColor = this.grayToRGBA(this.num(operands, 0)); break;
-      case 'rg':
-        this.state.fillColor = { r: Math.round(this.num(operands, 0) * 255), g: Math.round(this.num(operands, 1) * 255), b: Math.round(this.num(operands, 2) * 255), a: 255 };
+      // --- Color (preserve alpha set by gs/ExtGState) ---
+      case 'g': { const a = this.state.fillColor.a; this.state.fillColor = this.grayToRGBA(this.num(operands, 0)); this.state.fillColor.a = a; break; }
+      case 'G': { const a = this.state.strokeColor.a; this.state.strokeColor = this.grayToRGBA(this.num(operands, 0)); this.state.strokeColor.a = a; break; }
+      case 'rg': {
+        const a = this.state.fillColor.a;
+        this.state.fillColor = { r: Math.round(this.num(operands, 0) * 255), g: Math.round(this.num(operands, 1) * 255), b: Math.round(this.num(operands, 2) * 255), a };
         break;
-      case 'RG':
-        this.state.strokeColor = { r: Math.round(this.num(operands, 0) * 255), g: Math.round(this.num(operands, 1) * 255), b: Math.round(this.num(operands, 2) * 255), a: 255 };
+      }
+      case 'RG': {
+        const a = this.state.strokeColor.a;
+        this.state.strokeColor = { r: Math.round(this.num(operands, 0) * 255), g: Math.round(this.num(operands, 1) * 255), b: Math.round(this.num(operands, 2) * 255), a };
         break;
-      case 'k': this.state.fillColor = this.cmykToRGBA(this.num(operands, 0), this.num(operands, 1), this.num(operands, 2), this.num(operands, 3)); break;
-      case 'K': this.state.strokeColor = this.cmykToRGBA(this.num(operands, 0), this.num(operands, 1), this.num(operands, 2), this.num(operands, 3)); break;
+      }
+      case 'k': { const a = this.state.fillColor.a; this.state.fillColor = this.cmykToRGBA(this.num(operands, 0), this.num(operands, 1), this.num(operands, 2), this.num(operands, 3)); this.state.fillColor.a = a; break; }
+      case 'K': { const a = this.state.strokeColor.a; this.state.strokeColor = this.cmykToRGBA(this.num(operands, 0), this.num(operands, 1), this.num(operands, 2), this.num(operands, 3)); this.state.strokeColor.a = a; break; }
       case 'cs': case 'CS': break; // Set color space — we handle color values directly
       case 'sc': case 'SC': case 'scn': case 'SCN': {
-        // Generic color setting — interpret based on operand count
+        // Generic color setting — interpret based on operand count, preserve alpha
         const isStroke = op === 'SC' || op === 'SCN';
+        const c = isStroke ? 'strokeColor' : 'fillColor';
+        const prevA = this.state[c].a;
         const nums = operands.filter(o => o.type === 'number').map(o => o.value as number);
         if (nums.length === 1) {
-          const c = isStroke ? 'strokeColor' : 'fillColor';
           this.state[c] = this.grayToRGBA(nums[0]);
         } else if (nums.length === 3) {
-          const c = isStroke ? 'strokeColor' : 'fillColor';
           this.state[c] = { r: Math.round(nums[0] * 255), g: Math.round(nums[1] * 255), b: Math.round(nums[2] * 255), a: 255 };
         } else if (nums.length === 4) {
-          const c = isStroke ? 'strokeColor' : 'fillColor';
           this.state[c] = this.cmykToRGBA(nums[0], nums[1], nums[2], nums[3]);
         }
+        this.state[c].a = prevA;
         break;
       }
 
@@ -707,7 +711,7 @@ class PageRenderer {
     const font = parseFont(fontObj, (obj) => this.resolveObj(obj));
 
     // If font has a ToUnicode stream, decode it via the parser
-    if (!font.toUnicode) {
+    if (!font.toUnicode || font.toUnicode.size === 0) {
       const touniRef = fontObj.get('ToUnicode');
       if (touniRef) {
         const stream = this.resolveObj(touniRef);
@@ -734,9 +738,16 @@ class PageRenderer {
     const font = this.state.font;
     const fontSize = this.state.fontSize;
 
-    for (let i = 0; i < bytes.length; i++) {
-      const charCode = bytes[i];
-      this.renderChar(charCode, font, fontSize);
+    if (font?.isComposite) {
+      // Type0 fonts use 2-byte character codes
+      for (let i = 0; i + 1 < bytes.length; i += 2) {
+        const charCode = (bytes[i] << 8) | bytes[i + 1];
+        this.renderChar(charCode, font, fontSize);
+      }
+    } else {
+      for (let i = 0; i < bytes.length; i++) {
+        this.renderChar(bytes[i], font, fontSize);
+      }
     }
   }
 
@@ -754,6 +765,8 @@ class PageRenderer {
     const font = this.state.font;
     const fontSize = this.state.fontSize;
 
+    const composite = font?.isComposite ?? false;
+
     for (const item of arr) {
       if (typeof item === 'number') {
         // Adjust text position: number is in thousandths of a unit of text space
@@ -761,8 +774,14 @@ class PageRenderer {
         const m: Matrix = [1, 0, 0, 1, adjust, 0];
         this.state.textMatrix = multiplyMatrix(m, this.state.textMatrix);
       } else if (item instanceof Uint8Array) {
-        for (let i = 0; i < item.length; i++) {
-          this.renderChar(item[i], font, fontSize);
+        if (composite) {
+          for (let i = 0; i + 1 < item.length; i += 2) {
+            this.renderChar((item[i] << 8) | item[i + 1], font, fontSize);
+          }
+        } else {
+          for (let i = 0; i < item.length; i++) {
+            this.renderChar(item[i], font, fontSize);
+          }
         }
       } else if (typeof item === 'string') {
         for (let i = 0; i < item.length; i++) {
@@ -864,6 +883,33 @@ class PageRenderer {
         (Array.isArray(cs) && cs.length > 0 && isPdfName(cs[0]) ? (cs[0] as any).name : 'DeviceRGB');
 
       pixels = this.decodeRawImage(decoded, w, h, bpc, csName);
+    }
+
+    // Apply SMask (soft mask) as alpha channel
+    const smaskRef = dict.get('SMask');
+    if (smaskRef) {
+      const smaskStream = this.resolveObj(smaskRef);
+      if (isPdfStream(smaskStream)) {
+        try {
+          const smaskW = (smaskStream.dict.get('Width') as number) ?? pixels.width;
+          const smaskH = (smaskStream.dict.get('Height') as number) ?? pixels.height;
+          let smaskData: Uint8Array;
+          if (this.parser) {
+            smaskData = this.parser.decodeStreamData(smaskStream);
+          } else {
+            smaskData = smaskStream.rawData;
+          }
+          // SMask is typically DeviceGray 8bpc — apply as alpha
+          for (let i = 0; i < pixels.width * pixels.height; i++) {
+            const sx = Math.floor((i % pixels.width) * smaskW / pixels.width);
+            const sy = Math.floor(Math.floor(i / pixels.width) * smaskH / pixels.height);
+            const maskVal = smaskData[sy * smaskW + sx] ?? 255;
+            pixels.data[i * 4 + 3] = maskVal;
+          }
+        } catch {
+          // Ignore SMask decode errors
+        }
+      }
     }
 
     // Composite onto buffer using current CTM

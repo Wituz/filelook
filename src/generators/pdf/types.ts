@@ -82,6 +82,7 @@ export interface PdfFont {
   encoding: Map<number, string> | null;
   baseFont: string;
   defaultWidth: number;
+  isComposite: boolean;
 }
 
 export interface GraphicsState {
