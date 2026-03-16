@@ -128,18 +128,21 @@ const C7 = 0.1950903220;
 
 const _colScratch = new Float64Array(8);
 
+// DC normalization: alpha(0)*cos(0) = alpha(4)*cos(pi/4) = 1/(2*sqrt(2))
+const N = 1 / (2 * Math.SQRT2);
+
 function idctPass(s0: number, s1: number, s2: number, s3: number,
   s4: number, s5: number, s6: number, s7: number,
   out: Float64Array, o: number): void {
-  const p0 = (s0 + s4) * 0.5;
-  const p1 = (s0 - s4) * 0.5;
-  const p2 = s2 * C6 - s6 * C2;
-  const p3 = s2 * C2 + s6 * C6;
+  const p0 = (s0 + s4) * N;
+  const p1 = (s0 - s4) * N;
+  const p2 = (s2 * C6 - s6 * C2) * 0.5;
+  const p3 = (s2 * C2 + s6 * C6) * 0.5;
   const t0 = p0 + p3, t1 = p1 + p2, t2 = p1 - p2, t3 = p0 - p3;
-  const q0 = s1 * C1 + s3 * C3 + s5 * C5 + s7 * C7;
-  const q1 = s1 * C3 - s3 * C7 - s5 * C1 - s7 * C5;
-  const q2 = s1 * C5 - s3 * C1 + s5 * C7 + s7 * C3;
-  const q3 = s1 * C7 - s3 * C5 + s5 * C3 - s7 * C1;
+  const q0 = (s1 * C1 + s3 * C3 + s5 * C5 + s7 * C7) * 0.5;
+  const q1 = (s1 * C3 - s3 * C7 - s5 * C1 - s7 * C5) * 0.5;
+  const q2 = (s1 * C5 - s3 * C1 + s5 * C7 + s7 * C3) * 0.5;
+  const q3 = (s1 * C7 - s3 * C5 + s5 * C3 - s7 * C1) * 0.5;
   out[o] = t0+q0; out[o+1] = t1+q1; out[o+2] = t2+q2; out[o+3] = t3+q3;
   out[o+4] = t3-q3; out[o+5] = t2-q2; out[o+6] = t1-q1; out[o+7] = t0-q0;
 }
@@ -580,8 +583,8 @@ function assembleDCPixels(
   const outH = mcuRows * maxV;
   const rgba = new Uint8Array(outW * outH * 4);
 
-  // DC normalization: two idctPass stages each multiply DC by 0.5 → 0.25 total
-  const dcScales = components.map(comp => qtTables[comp.qtId].data[0] * 0.25);
+  // DC normalization: two idctPass stages each multiply DC by N=1/(2√2) → N²=0.125 total
+  const dcScales = components.map(comp => qtTables[comp.qtId].data[0] * 0.125);
 
   if (components.length === 1) {
     const scale = dcScales[0];
