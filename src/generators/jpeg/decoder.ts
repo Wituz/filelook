@@ -23,6 +23,7 @@ class BitReader {
   pos: number;
   private bitBuf = 0;
   private bitCount = 0;
+  private hitMarker = false;
 
   constructor(private data: Uint8Array, startPos: number) {
     this.pos = startPos;
@@ -31,16 +32,23 @@ class BitReader {
   reset(): void {
     this.bitBuf = 0;
     this.bitCount = 0;
+    this.hitMarker = false;
   }
 
   readBit(): number {
+    if (this.hitMarker) return 0;
     if (this.bitCount === 0) {
       if (this.pos >= this.data.length) return 0;
       let byte = this.data[this.pos++];
       if (byte === 0xFF) {
         if (this.pos >= this.data.length) return 0;
         const next = this.data[this.pos++];
-        if (next !== 0) throw new Error(`Unexpected marker 0xFF${next.toString(16)} in scan data`);
+        if (next !== 0) {
+          // Hit a marker — back up so findNextMarker can find it, pad with zeros
+          this.pos -= 2;
+          this.hitMarker = true;
+          return 0;
+        }
       }
       this.bitBuf = byte;
       this.bitCount = 8;
@@ -48,6 +56,8 @@ class BitReader {
     this.bitCount--;
     return (this.bitBuf >>> this.bitCount) & 1;
   }
+
+  get reachedMarker(): boolean { return this.hitMarker; }
 
   readBits(n: number): number {
     let val = 0;
@@ -415,6 +425,7 @@ function decodeProgressiveScan(
   if (scanComps.length > 1) {
     for (let mcuRow = 0; mcuRow < mcuRows; mcuRow++) {
       for (let mcuCol = 0; mcuCol < mcuCols; mcuCol++) {
+        if (reader.reachedMarker) return;
         if (restartInterval > 0 && mcuCount > 0 && mcuCount % restartInterval === 0) {
           handleRestart(reader);
           prevDC.fill(0);
@@ -441,17 +452,20 @@ function decodeProgressiveScan(
     return;
   }
 
-  // Non-interleaved scan (single component)
+  // Non-interleaved scan (single component) — block count from component dimensions
   const sc = scanComps[0];
   const comp = components[sc.compIdx];
-  const blocksH = mcuCols * comp.hSample;
-  const blocksV = mcuRows * comp.vSample;
+  const compW = Math.ceil(frame.width * comp.hSample / frame.maxH);
+  const compH = Math.ceil(frame.height * comp.vSample / frame.maxV);
+  const blocksH = Math.ceil(compW / 8);
+  const blocksV = Math.ceil(compH / 8);
 
   // EOB run counter for progressive AC scans
   let eobRun = 0;
 
   for (let blockRow = 0; blockRow < blocksV; blockRow++) {
     for (let blockCol = 0; blockCol < blocksH; blockCol++) {
+      if (reader.reachedMarker) return;
       if (restartInterval > 0 && mcuCount > 0 && mcuCount % restartInterval === 0) {
         handleRestart(reader);
         prevDC.fill(0);
